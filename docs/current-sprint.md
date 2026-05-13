@@ -8,10 +8,10 @@
 ## Задачі спринту
 
 ### 1. Scaffold і базова інфраструктура
-- [ ] Next.js 14 + TypeScript + Tailwind + shadcn/ui
-- [ ] Supabase проект: таблиці users, profiles, modules, module_progress, tokens
-- [ ] Supabase Auth: Google SSO
-- [ ] Базовий layout: хедер з балансом токенів, навігація
+- [x] Next.js 14 + TypeScript + Tailwind + shadcn/ui
+- [x] Supabase проект: таблиці users, profiles, modules, module_progress, tokens (SQL міграція готова, треба прогнати на реальному проекті)
+- [x] Supabase Auth: Google SSO (`/login`, `/register`, `/auth/callback`, `/auth/signout`)
+- [x] Базовий layout: хедер з балансом токенів, навігація (Dashboard / Модулі / Скіли / Профіль) + mobile hamburger
 
 ### 2. Онбординг
 - [x] Сторінка /onboarding з прогрес-баром
@@ -64,10 +64,22 @@
 - **Orchestrator** `app/(app)/onboarding/onboarding-flow.tsx`: client state, прогрес-бар, шлях `reading → decision → priority → dialog → analyzing → /profile`. Обробка помилок з retry.
 - **Profile** `/profile`: показує goal + блок А + блок Б рядком з лейблом/значенням. Редірект на `/onboarding` якщо не завершено.
 
+### Сесія 3 (2026-05-13) — Auth UX + Layout + nav
+- **Middleware**: тепер захищає також `/dashboard|/modules|/skills` (плюс попередні `/onboarding|/module|/profile`).
+- **`/register`**: окрема сторінка з тим самим Google OAuth flow (sign-up framing). `LoginForm` параметризований (`label`, `next`).
+- **`/login`**: додав посилання на `/register`. Post-onboarding redirect тепер на `/dashboard` (не `/profile`).
+- **Хедер** (`components/header.tsx` server + `components/header-nav.tsx` client): nav з 4 пунктами, активний пункт виділений, баланс токенів, signout. На мобільному — hamburger toggle з повноекранною панеллю; `body.overflow=hidden` коли відкрита; авто-закриття на зміну роуту.
+- **Placeholder pages**:
+  - `/dashboard` — сьогоднішні модулі (з БД), картки на Скіли і Профіль.
+  - `/modules` — список усіх модулів юзера (поки порожньо).
+  - `/skills` — карта скілів (поки порожньо, з поясненням принципу дзеркала).
+- **Лендінг `/`**: якщо юзер залогінений — auto-redirect на `/dashboard` (або `/onboarding`).
+- **Onboarding flow**: фініш редіректить на `/dashboard`. `/onboarding/page.tsx` редіректить завершених на `/dashboard`.
+
 **Що далі (Задача 3 — генерація першого модуля)**:
 1. `lib/ai/prompts/generate-module.ts` + tool schema (`hook`, `core.sections[]`, `core.sources[]`, `action`)
 2. `app/api/ai/generate-module/route.ts` зі streaming через `messages.stream()`
 3. `app/(app)/module/[id]/page.tsx` — рендер трьох актів
-4. Після онбордингу — переходити не на `/profile`, а на екран генерації, який пушить юзера на `/module/[id]`
+4. Після онбордингу — переходити на екран генерації, що пушить юзера на `/module/[id]` (зараз веде на `/dashboard`)
 5. Спочатку треба `npm install`, налаштувати Supabase проект (URL, ключі, Google OAuth) і прогнати міграцію
 

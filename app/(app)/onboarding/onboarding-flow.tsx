@@ -44,7 +44,7 @@ export function OnboardingFlow() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `HTTP ${res.status}`);
       }
-      router.push("/profile");
+      router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Невідома помилка");

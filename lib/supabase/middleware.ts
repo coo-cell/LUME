@@ -33,9 +33,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAppRoute = request.nextUrl.pathname.startsWith("/onboarding") ||
-    request.nextUrl.pathname.startsWith("/module") ||
-    request.nextUrl.pathname.startsWith("/profile");
+  const path = request.nextUrl.pathname;
+  const isAppRoute =
+    path.startsWith("/onboarding") ||
+    path.startsWith("/module") ||
+    path.startsWith("/modules") ||
+    path.startsWith("/profile") ||
+    path.startsWith("/dashboard") ||
+    path.startsWith("/skills");
 
   if (!user && isAppRoute) {
     const url = request.nextUrl.clone();

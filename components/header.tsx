@@ -1,7 +1,14 @@
 import Link from "next/link";
 
+import { HeaderNav, type NavLink } from "@/components/header-nav";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+
+const AUTHED_LINKS: NavLink[] = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/modules", label: "Модулі" },
+  { href: "/skills", label: "Скіли" },
+  { href: "/profile", label: "Профіль" },
+];
 
 export async function Header() {
   const supabase = createClient();
@@ -20,38 +27,30 @@ export async function Header() {
   }
 
   return (
-    <header className="border-b">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between gap-4">
+        <Link href={user ? "/dashboard" : "/"} className="text-lg font-semibold tracking-tight">
           Lume
         </Link>
 
-        <nav className="flex items-center gap-3">
-          {user ? (
-            <>
-              {balance !== null && (
-                <span className="text-sm text-muted-foreground">
-                  {balance.toLocaleString("uk-UA")} токенів
-                </span>
-              )}
-              <Link
-                href="/profile"
-                className="text-sm hover:underline underline-offset-4"
-              >
-                Профіль
-              </Link>
-              <form action="/auth/signout" method="post">
-                <Button variant="ghost" size="sm" type="submit">
-                  Вийти
-                </Button>
-              </form>
-            </>
-          ) : (
-            <Button asChild size="sm">
-              <Link href="/login">Увійти</Link>
-            </Button>
-          )}
-        </nav>
+        {user ? (
+          <HeaderNav links={AUTHED_LINKS} balance={balance} />
+        ) : (
+          <nav className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Увійти
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Створити акаунт
+            </Link>
+          </nav>
+        )}
       </div>
     </header>
   );

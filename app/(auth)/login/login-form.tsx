@@ -5,7 +5,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
-export function LoginForm() {
+interface Props {
+  label?: string;
+  next?: string;
+}
+
+export function LoginForm({
+  label = "Продовжити з Google",
+  next = "/onboarding",
+}: Props = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +25,7 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 
@@ -38,7 +46,7 @@ export function LoginForm() {
         disabled={loading}
       >
         <GoogleIcon className="h-4 w-4" />
-        {loading ? "Перенаправляємо..." : "Продовжити з Google"}
+        {loading ? "Перенаправляємо..." : label}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

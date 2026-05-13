@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { LoginForm } from "./login-form";
+import { LoginForm } from "../login/login-form";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const supabase = createClient();
   const {
     data: { user },
@@ -25,25 +31,19 @@ export default async function LoginPage() {
     <div className="container flex min-h-[calc(100vh-4rem)] items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Увійти в Lume</CardTitle>
+          <CardTitle>Створити акаунт</CardTitle>
           <CardDescription>
-            Персональний план навчання за 10 хвилин. 3 000 безкоштовних токенів при реєстрації.
+            3 000 безкоштовних токенів на старт. Перший модуль під твою ціль —
+            одразу після онбордингу.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LoginForm />
+          <LoginForm label="Зареєструватись через Google" next="/onboarding" />
           <p className="text-xs text-muted-foreground">
-            Нема акаунта?{" "}
-            <Link href="/register" className="underline underline-offset-4">
-              Створити
+            Вже є акаунт?{" "}
+            <Link href="/login" className="underline underline-offset-4">
+              Увійти
             </Link>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Продовжуючи, ти приймаєш умови і{" "}
-            <Link href="/" className="underline underline-offset-4">
-              політику конфіденційності
-            </Link>
-            .
           </p>
         </CardContent>
       </Card>

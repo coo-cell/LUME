@@ -18,7 +18,7 @@ export default async function OnboardingPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profile?.onboarding_completed) redirect("/profile");
+  if (profile?.onboarding_completed) redirect("/dashboard");
 
   return (
     <div className="container max-w-2xl py-8">
