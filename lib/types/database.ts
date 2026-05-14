@@ -57,6 +57,11 @@ export interface PauseResponse {
   length: number;
 }
 
+export interface ClarifyingAnswer {
+  question: string;
+  answer: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -152,6 +157,7 @@ export interface Database {
           context_type: string | null;
           evidence: string | null;
           confirmed_by_user: boolean;
+          clarifying_answers: ClarifyingAnswer[];
         };
         Insert: Partial<Database["public"]["Tables"]["skill_events"]["Row"]> & {
           skill_id: string;

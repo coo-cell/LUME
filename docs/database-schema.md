@@ -105,6 +105,7 @@ event_description   text        -- оригінальний опис події
 context_type        text        -- унікальний контекст (різні контексти = різні підтвердження)
 evidence            text        -- конкретне підтвердження з події (від AI)
 confirmed_by_user   boolean default false
+clarifying_answers  jsonb default '[]'  -- [{question, answer}] діалог з AI
 ```
 
 ### checkins

@@ -1,11 +1,32 @@
-# Поточний спринт — Спринт 1
+# Поточний спринт — Спринт 2
 
-**Мета**: Повний робочий флоу від реєстрації до першого модуля.
-**Статус**: 🟢 Готово (Sprint 1 завершений)
+**Мета**: Карта скілів через архів подій (принцип дзеркала). Далі — check-in автоматизація і 30-денна ретроспектива.
+**Статус**: 🟡 У роботі — карта скілів готова, check-in/ретроспектива далі
 
 ---
 
-## Задачі спринту
+## Задачі Sprint 2
+
+### 1. Карта скілів — детектор + UI
+- [x] Міграція `20260514000001_skill_events_clarifying.sql` — додає `clarifying_answers jsonb` у `skill_events`
+- [x] `lib/ai/prompts/detect-skills.ts` — два tool schemas (`ask_clarifying_questions`, `suggest_skills`) + system prompts (принцип дзеркала, конкретні скіли а не загальні ярлики)
+- [x] API `POST /api/ai/detect-skills/questions` — приймає опис події (≥80 chars), повертає 2–3 уточнюючих питання. `assertBalance(300)` без charge.
+- [x] API `POST /api/ai/detect-skills/suggest` — приймає опис + відповіді, повертає 3–5 запропонованих скілів `{name, evidence, context_tag}`. `assertBalance(300)` без charge.
+- [x] API `POST /api/skills/confirm` — створює/знаходить `skills` row (за `user_id + name`), пише `skill_events` з `clarifying_answers`, recompute `confirmation_count = COUNT(DISTINCT context_type)`, перерахунок `level` через `lib/skills/level.ts`. Charge `skill_detection` (300) одноразово в кінці.
+- [x] UI `/skills/new` — `NewSkillEvent` state machine: `event → questions → suggestions → saving`. Прогрес-бар з 4 кроків. Чек-бокси "Зберегти" + редаговані назви + перемикач контексту + evidence.
+- [x] `/skills` page оновлено — прогрес-бар до наступного рівня (порогові пункти 2 / 5 / 8 контекстів), кнопка "+ Додати подію", empty state з CTA.
+- [x] Логіка рівнів (`lib/skills/level.ts`): 1=discovered, 2–3=growing, 5–6=experienced, 8+=master. Один скіл в одному контексті = одне підтвердження (через `DISTINCT context_type`).
+
+---
+
+## Sprint 1 — завершено
+
+**Мета**: Повний робочий флоу від реєстрації до першого модуля.
+**Статус**: 🟢 Готово
+
+---
+
+## Задачі Sprint 1
 
 ### 1. Scaffold і базова інфраструктура
 - [x] Next.js 14 + TypeScript + Tailwind + shadcn/ui
@@ -39,13 +60,39 @@
 
 ## Наступний спринт (після цього)
 
-Спринт 2: Карта скілів + архів подій + check-in автоматизація
+Спринт 3: Check-in (7/14 днів), 30-денна ретроспектива (AI-наратив), behaviour-tracking для модулів (час на акти, reread)
 
 ---
 
 ## Нотатки сесій
 
 *Тут Claude Code залишає нотатки після кожної сесії — що зроблено, що відкрито, де зупинились.*
+
+### Сесія 6 (2026-05-14) — Sprint 2 Task 1: карта скілів
+- **Міграція** `20260514000001_skill_events_clarifying.sql` — `alter table skill_events add column clarifying_answers jsonb default '[]'`. Треба прогнати на реальному проекті.
+- **Промпти** `lib/ai/prompts/detect-skills.ts`: два tool schemas з принципом дзеркала.
+  - `ask_clarifying_questions` → 2–3 коротких відкритих питань про КОНКРЕТНІ дії, не про "як ти почувався".
+  - `suggest_skills` → 3–5 скілів `{name (2–4 слова, конкретні; забороняє "лідерство" як ярлик), evidence (1–2 речення з опису), context_tag (work|leadership|creative|personal)}`. "Якщо сигналів менше 3 — пропонуй 3, не натягуй до 5".
+- **API endpoints**:
+  - `POST /api/ai/detect-skills/questions` — мін. 80 chars опис, `assertBalance(300)` без charge, `anthropic.messages.create` з `tool_choice`. Повертає `{questions}`.
+  - `POST /api/ai/detect-skills/suggest` — описание + `clarifying_answers[]`, `assertBalance(300)` без charge. Повертає `{suggestions}`.
+  - `POST /api/skills/confirm` — приймає `{event_description, clarifying_answers, confirmed: [{name, context_tag, evidence}]}`. Для кожного скілу: find-or-create `skills` row by `(user_id, name)` exact match, insert `skill_events` row (з `clarifying_answers` JSON), recompute `confirmation_count = COUNT(DISTINCT context_type)` через select по подіях, оновити `level` (`lib/skills/level.ts`). `charge('skill_detection', 300)` один раз в кінці з `referenceId = першого skillId`.
+- **`lib/skills/level.ts`** — `levelForCount`: 8+ → master, 5–6 → experienced, 2–3 → growing, інакше → discovered. 4 і 7 округлюються вниз. Контексти DISTINCT — один скіл в одному `context_tag` рахується як одне підтвердження, навіть якщо подія записана двічі.
+- **UI `/skills/new`** (server wrapper `page.tsx` + client `components/skills/new-skill-event.tsx`):
+  - Phase state machine: `event → questions → suggestions → saving`.
+  - Step 1: textarea з лічильником символів (мін. 80).
+  - Step 2: textarea на кожне з 2–3 питань.
+  - Step 3: `SkillReviewList` — інлайн редагування назви, чекбокс "Зберегти" на кожен пункт, перемикач контексту (4 кнопки), evidence показано read-only.
+  - Прогрес-бар `SkillStepProgress` з кроками "Опис / Уточнення / Скіли / Готово".
+  - Error handling з retry (без abort на cleanup, як у /module/generating).
+- **`/skills` page** оновлено: прогрес-бари до наступного рівня (порогові пункти 1→2 / 2→5 / 5→8), кнопка "+ Додати подію" у хедері, empty state з CTA "Додати першу подію".
+
+**Що не зроблено в цій сесії (Sprint 2 далі)**:
+- Check-in (день 7 і 14): email/push тригери, форма
+- 30-денна ретроспектива (`generate-retrospective` промпт + AI-наратив)
+- Behaviour tracking для модулів: time_on_hook_sec / time_on_core_sec / time_on_action_sec, sections_reread (scroll-based)
+- Попередження про малий баланс токенів (20% / 5%) у хедері
+- Re-engagement якщо людина пропала після онбордингу
 
 ### Сесія 1 (2026-05-13) — Scaffold
 - Створено docs/ з product-vision, prd, database-schema, current-sprint, ai-prompts
