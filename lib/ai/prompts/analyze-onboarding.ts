@@ -19,8 +19,14 @@ import type {
 export interface OnboardingInput {
   task_reading: {
     passage_topic: string;
-    comprehension_q1_answer: string;
-    comprehension_q2_answer: string;
+    comprehension_q1: string;
+    comprehension_q1_options: string[];
+    comprehension_q1_choice_index: number | null;
+    comprehension_q1_correct_index: number;
+    comprehension_q2: string;
+    comprehension_q2_options: string[];
+    comprehension_q2_choice_index: number | null;
+    comprehension_q2_correct_index: number;
     open_question: string;
     open_answer: string;
     time_to_read_sec: number;
@@ -164,6 +170,7 @@ export const ANALYZE_ONBOARDING_SYSTEM = `Ти — аналітик навчал
 
 ЗАДАЧА 1 (читання тексту):
 - Час читання vs середній (швидкий = fast, повільний з перечитуванням = deep, середній = medium)
+- Точність відповідей на multiple-choice (співпадіння з correct_index) — сигнал про увагу і розуміння, не про IQ
 - Стиль відкритої відповіді: коротка і структурована = analytical; образна, асоціативна = intuitive
 - Чи виділив "найважливіше" фокусно або широко (depth_vs_breadth)
 
@@ -187,17 +194,29 @@ export const ANALYZE_ONBOARDING_SYSTEM = `Ти — аналітик навчал
 - Завжди викликай tool save_user_profile. Не давай текстову відповідь поза tool call.`;
 
 export function buildAnalyzeOnboardingUserMessage(input: OnboardingInput): string {
+  const r = input.task_reading;
+  const q1Chosen =
+    r.comprehension_q1_choice_index !== null
+      ? `варіант ${r.comprehension_q1_choice_index + 1}: "${r.comprehension_q1_options[r.comprehension_q1_choice_index]}" (правильний: ${r.comprehension_q1_correct_index + 1})`
+      : "не обрано";
+  const q2Chosen =
+    r.comprehension_q2_choice_index !== null
+      ? `варіант ${r.comprehension_q2_choice_index + 1}: "${r.comprehension_q2_options[r.comprehension_q2_choice_index]}" (правильний: ${r.comprehension_q2_correct_index + 1})`
+      : "не обрано";
+
   return `Ось дані онбордингу. Проаналізуй і виклич save_user_profile.
 
 == ЗАДАЧА 1 — РОЗУМІННЯ ТЕКСТУ ==
-Тема уривка: ${input.task_reading.passage_topic}
-Час читання: ${input.task_reading.time_to_read_sec} сек
-Перечитував: ${input.task_reading.reread ? "так" : "ні"}
-Час на відповіді: ${input.task_reading.time_to_answer_sec} сек
-Відповідь 1: ${input.task_reading.comprehension_q1_answer}
-Відповідь 2: ${input.task_reading.comprehension_q2_answer}
-Відкрите питання: "${input.task_reading.open_question}"
-Відповідь: ${input.task_reading.open_answer}
+Тема уривка: ${r.passage_topic}
+Час читання: ${r.time_to_read_sec} сек
+Перечитував: ${r.reread ? "так" : "ні"}
+Час на відповіді: ${r.time_to_answer_sec} сек
+Питання 1: "${r.comprehension_q1}"
+Обрано: ${q1Chosen}
+Питання 2: "${r.comprehension_q2}"
+Обрано: ${q2Chosen}
+Відкрите питання: "${r.open_question}"
+Відповідь: ${r.open_answer}
 
 == ЗАДАЧА 2 — РІШЕННЯ В НЕВИЗНАЧЕНОСТІ ==
 Сценарій: ${input.task_decision.scenario}

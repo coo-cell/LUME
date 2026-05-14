@@ -9,15 +9,17 @@ import { TaskDecision } from "@/components/onboarding/task-decision";
 import { TaskPriority } from "@/components/onboarding/task-priority";
 import { TaskReading } from "@/components/onboarding/task-reading";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import type { OnboardingInput } from "@/lib/ai/prompts/analyze-onboarding";
 
 type Step = "reading" | "decision" | "priority" | "dialog" | "analyzing" | "error";
 
-const STEPS: Exclude<Step, "analyzing" | "error">[] = [
-  "reading",
-  "decision",
-  "priority",
-  "dialog",
+const STEP_LABELS: Array<{ key: Step; label: string }> = [
+  { key: "reading", label: "Задача 1" },
+  { key: "decision", label: "Задача 2" },
+  { key: "priority", label: "Задача 3" },
+  { key: "dialog", label: "Діалог" },
+  { key: "analyzing", label: "Готово" },
 ];
 
 export function OnboardingFlow() {
@@ -26,11 +28,8 @@ export function OnboardingFlow() {
   const [data, setData] = useState<Partial<OnboardingInput>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const stepIdx = STEPS.indexOf(step as (typeof STEPS)[number]);
-  const progress =
-    step === "analyzing"
-      ? 100
-      : ((stepIdx >= 0 ? stepIdx : 0) / STEPS.length) * 100;
+  const visibleIdx = stepIndex(step === "error" ? "analyzing" : step);
+  const progress = ((visibleIdx + (step === "analyzing" ? 1 : 0)) / STEP_LABELS.length) * 100;
 
   async function submit(full: OnboardingInput) {
     setStep("analyzing");
@@ -44,7 +43,7 @@ export function OnboardingFlow() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `HTTP ${res.status}`);
       }
-      router.push("/dashboard");
+      router.push("/module/generating");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Невідома помилка");
@@ -54,19 +53,7 @@ export function OnboardingFlow() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {step === "analyzing"
-              ? "Аналізуємо"
-              : step === "error"
-                ? "Помилка"
-                : `Крок ${stepIdx + 1} з ${STEPS.length}`}
-          </span>
-          <span>~10 хв</span>
-        </div>
-        <Progress value={progress} />
-      </div>
+      <ProgressHeader currentIdx={visibleIdx} progress={progress} step={step} />
 
       {step === "reading" && (
         <TaskReading
@@ -116,7 +103,12 @@ export function OnboardingFlow() {
           <button
             className="mt-3 text-sm underline underline-offset-4"
             onClick={() => {
-              if (data.task_reading && data.task_decision && data.task_priority && data.goal_dialog) {
+              if (
+                data.task_reading &&
+                data.task_decision &&
+                data.task_priority &&
+                data.goal_dialog
+              ) {
                 void submit(data as OnboardingInput);
               } else {
                 setStep("dialog");
@@ -128,6 +120,53 @@ export function OnboardingFlow() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function stepIndex(s: Step): number {
+  const idx = STEP_LABELS.findIndex((x) => x.key === s);
+  return idx >= 0 ? idx : 0;
+}
+
+interface ProgressHeaderProps {
+  currentIdx: number;
+  progress: number;
+  step: Step;
+}
+
+function ProgressHeader({ currentIdx, progress, step }: ProgressHeaderProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {step === "analyzing"
+            ? "Аналізуємо"
+            : step === "error"
+              ? "Помилка"
+              : `Крок ${currentIdx + 1} з ${STEP_LABELS.length}`}
+        </span>
+        <span>~10 хв</span>
+      </div>
+      <Progress value={progress} />
+      <ol className="flex justify-between text-[11px] sm:text-xs">
+        {STEP_LABELS.map((s, i) => (
+          <li
+            key={s.key}
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1",
+              i < STEP_LABELS.length - 1 && "border-r",
+              i === currentIdx
+                ? "font-medium text-foreground"
+                : i < currentIdx
+                  ? "text-muted-foreground"
+                  : "text-muted-foreground/60",
+            )}
+          >
+            <span>{s.label}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

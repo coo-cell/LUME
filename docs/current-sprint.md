@@ -64,6 +64,14 @@
 - **Orchestrator** `app/(app)/onboarding/onboarding-flow.tsx`: client state, прогрес-бар, шлях `reading → decision → priority → dialog → analyzing → /profile`. Обробка помилок з retry.
 - **Profile** `/profile`: показує goal + блок А + блок Б рядком з лейблом/значенням. Редірект на `/onboarding` якщо не завершено.
 
+### Сесія 4 (2026-05-13) — Онбординг V2 (MC + DnD + 5-step + generating)
+- **TaskReading V2**: 2 питання з multiple-choice + 1 відкрите. Додав `comprehension_q1_options`, `comprehension_q2_options` у `onboarding-content.ts`. `Q1_CORRECT/Q2_CORRECT` як hint для аналізатора (сигнал уваги, не оцінка).
+- **TaskPriority V2**: HTML5 native drag-and-drop (`onDragStart/onDragOver/onDrop/onDragEnd`) з візуальним feedback (opacity на джерело, border highlight на target). Кнопки ↑↓ збережені як touch/a11y fallback. Drag handle ⋮⋮.
+- **OnboardingInput schema**: переробив `task_reading` — замість `comprehension_q*_answer: string` тепер `comprehension_q*: string` (текст питання) + `comprehension_q*_options: string[]` + `comprehension_q*_choice_index: number | null` + `comprehension_q*_correct_index: number`. Промпт `analyze-onboarding` оновлений: показує що обрано, що було правильно.
+- **Onboarding flow V2**: 5-step progress bar — список кроків "Задача 1 / Задача 2 / Задача 3 / Діалог / Готово" з підсвічуванням поточного. Прогрес = (currentIdx + (analyzing ? 1 : 0)) / 5.
+- **Redirect** на `/module/generating` (не на `/dashboard` напряму). `onboarding-flow` → `router.push("/module/generating")`.
+- **`/module/generating`**: placeholder page зі спіннером і кнопкою "Перейти в Dashboard". Auth-guarded, редіректить незавершених на `/onboarding`. Після `/api/ai/generate-module` (Задача 3) тут запуститься streaming.
+
 ### Сесія 3 (2026-05-13) — Auth UX + Layout + nav
 - **Middleware**: тепер захищає також `/dashboard|/modules|/skills` (плюс попередні `/onboarding|/module|/profile`).
 - **`/register`**: окрема сторінка з тим самим Google OAuth flow (sign-up framing). `LoginForm` параметризований (`label`, `next`).
