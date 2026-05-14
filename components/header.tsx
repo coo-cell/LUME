@@ -17,13 +17,15 @@ export async function Header() {
   } = await supabase.auth.getUser();
 
   let balance: number | null = null;
+  let monthlyAllocation = 3000;
   if (user) {
     const { data } = await supabase
       .from("tokens")
-      .select("balance")
+      .select("balance, plan, plan_tokens_per_month")
       .eq("user_id", user.id)
       .maybeSingle();
     balance = data?.balance ?? null;
+    monthlyAllocation = data?.plan_tokens_per_month ?? 3000;
   }
 
   return (
@@ -34,7 +36,7 @@ export async function Header() {
         </Link>
 
         {user ? (
-          <HeaderNav links={AUTHED_LINKS} balance={balance} />
+          <HeaderNav links={AUTHED_LINKS} balance={balance} monthlyAllocation={monthlyAllocation} />
         ) : (
           <nav className="flex items-center gap-3">
             <Link

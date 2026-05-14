@@ -9,12 +9,8 @@ import {
 } from "@/lib/ai/prompts/generate-module";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import {
-  TOKEN_COSTS,
-  assertBalance,
-  charge,
-  InsufficientTokensError,
-} from "@/lib/tokens/charge";
+import { guardAITokens } from "@/lib/tokens/api-guard";
+import { TOKEN_COSTS, charge } from "@/lib/tokens/charge";
 import type { ModuleContent } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -79,21 +75,8 @@ export async function POST() {
     }
   }
 
-  try {
-    await assertBalance(user.id, TOKEN_COSTS.module_generation);
-  } catch (err) {
-    if (err instanceof InsufficientTokensError) {
-      return NextResponse.json(
-        {
-          error: "Insufficient tokens",
-          balance: err.balance,
-          required: err.required,
-        },
-        { status: 402 },
-      );
-    }
-    throw err;
-  }
+  const guard = await guardAITokens(user.id, "module_generation");
+  if (guard) return guard;
 
   const input: GenerateModuleInput = {
     motivation_vector: profile.motivation_vector,

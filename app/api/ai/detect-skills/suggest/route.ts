@@ -8,11 +8,7 @@ import {
   type SkillSuggestion,
 } from "@/lib/ai/prompts/detect-skills";
 import { createClient } from "@/lib/supabase/server";
-import {
-  TOKEN_COSTS,
-  assertBalance,
-  InsufficientTokensError,
-} from "@/lib/tokens/charge";
+import { guardAITokens } from "@/lib/tokens/api-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -50,21 +46,8 @@ export async function POST(req: Request) {
   }
 
   // Gate again — charge happens on /api/skills/confirm after user accepts.
-  try {
-    await assertBalance(user.id, TOKEN_COSTS.skill_detection);
-  } catch (err) {
-    if (err instanceof InsufficientTokensError) {
-      return NextResponse.json(
-        {
-          error: "Insufficient tokens",
-          balance: err.balance,
-          required: err.required,
-        },
-        { status: 402 },
-      );
-    }
-    throw err;
-  }
+  const guard = await guardAITokens(user.id, "skill_detection");
+  if (guard) return guard;
 
   const anthropic = createAnthropic();
   const message = await anthropic.messages.create({

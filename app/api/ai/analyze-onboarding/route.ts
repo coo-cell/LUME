@@ -10,12 +10,8 @@ import {
 } from "@/lib/ai/prompts/analyze-onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  TOKEN_COSTS,
-  assertBalance,
-  charge,
-  InsufficientTokensError,
-} from "@/lib/tokens/charge";
+import { guardAITokens } from "@/lib/tokens/api-guard";
+import { charge } from "@/lib/tokens/charge";
 
 export const runtime = "nodejs";
 
@@ -36,17 +32,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  try {
-    await assertBalance(user.id, TOKEN_COSTS.onboarding);
-  } catch (err) {
-    if (err instanceof InsufficientTokensError) {
-      return NextResponse.json(
-        { error: "Insufficient tokens", balance: err.balance, required: err.required },
-        { status: 402 },
-      );
-    }
-    throw err;
-  }
+  const guard = await guardAITokens(user.id, "onboarding");
+  if (guard) return guard;
 
   const anthropic = createAnthropic();
   const response = await anthropic.messages.create({

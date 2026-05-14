@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { TokenBalance } from "@/components/token-balance";
 import { cn } from "@/lib/utils";
 
 export interface NavLink {
@@ -14,9 +15,10 @@ export interface NavLink {
 interface Props {
   links: NavLink[];
   balance: number | null;
+  monthlyAllocation: number;
 }
 
-export function HeaderNav({ links, balance }: Props) {
+export function HeaderNav({ links, balance, monthlyAllocation }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -51,7 +53,7 @@ export function HeaderNav({ links, balance }: Props) {
       </nav>
 
       <div className="hidden items-center gap-3 md:flex">
-        <Balance value={balance} />
+        <BalanceSlot value={balance} monthlyAllocation={monthlyAllocation} />
         <SignOutButton />
       </div>
 
@@ -85,7 +87,7 @@ export function HeaderNav({ links, balance }: Props) {
               </Link>
             ))}
             <div className="flex items-center justify-between border-t pt-3">
-              <Balance value={balance} />
+              <BalanceSlot value={balance} monthlyAllocation={monthlyAllocation} />
               <SignOutButton />
             </div>
           </div>
@@ -95,13 +97,15 @@ export function HeaderNav({ links, balance }: Props) {
   );
 }
 
-function Balance({ value }: { value: number | null }) {
+function BalanceSlot({
+  value,
+  monthlyAllocation,
+}: {
+  value: number | null;
+  monthlyAllocation: number;
+}) {
   if (value === null) return null;
-  return (
-    <span className="text-sm text-muted-foreground">
-      {value.toLocaleString("uk-UA")} токенів
-    </span>
-  );
+  return <TokenBalance balance={value} monthlyAllocation={monthlyAllocation} />;
 }
 
 function SignOutButton() {

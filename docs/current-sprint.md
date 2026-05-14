@@ -1,11 +1,25 @@
 # Поточний спринт — Спринт 2
 
-**Мета**: Карта скілів через архів подій (принцип дзеркала). Далі — check-in автоматизація і 30-денна ретроспектива.
-**Статус**: 🟡 У роботі — карта скілів готова, check-in/ретроспектива далі
+**Мета**: Карта скілів через архів подій + токени і монетизація. Далі — check-in автоматизація і 30-денна ретроспектива.
+**Статус**: 🟡 У роботі — скіли + монетизація готові, check-in/ретроспектива далі
 
 ---
 
 ## Задачі Sprint 2
+
+### 2. Токени і монетизація (Lemon Squeezy)
+- [x] `components/token-balance.tsx` — баланс у хедері з кольоровими порогами: <20% жовтий, <5% червоний + посилання на `/pricing`. Працює як на десктопі так і в мобільному меню.
+- [x] `lib/tokens/api-guard.ts` — `guardAITokens(userId, actionType)` повертає `null` або `NextResponse 402 {error, balance, required, redirect_to: "/pricing"}`. Перевикористовується в analyze-onboarding, generate-module, detect-skills/questions, detect-skills/suggest.
+- [x] `lib/pricing/plans.ts` — три плани (Free 3000, Core 12000/$9, Pro 40000/$29) + три token-pack (5k/$5, 15k/$12, 50k/$35). variantId і checkoutUrl приходять з env. `lookupPurchase(variantId)` → ефект на токени і план для webhook.
+- [x] `/pricing` page — публічна сторінка (поза protected middleware), показує поточний план/баланс якщо залогінений. До checkout URL додає `checkout[custom][user_id]` + `checkout[email]` через `withCustomData`, щоб webhook знав кому нараховувати.
+- [x] `/api/webhooks/lemonsqueezy` — verify HMAC SHA256 з `LEMONSQUEEZY_WEBHOOK_SECRET` (constant-time compare), парсить `order_created` (= purchase) і `subscription_payment_success` (= renewal). Idempotency: перевіряє чи нема transaction з тим самим amount/action_type в останню годину. Нараховує токени, оновлює план + plan_tokens_per_month + next_renewal_at, пише в `token_transactions`.
+- [x] `.env.local.example` оновлений: LEMONSQUEEZY_WEBHOOK_SECRET, VARIANT_* і CHECKOUT_*_URL для 5 продуктів.
+
+**Що не зроблено в цій задачі (на майбутнє)**:
+- Окрема таблиця payments для повної idempotency (зараз евристика на amount+action_type+timestamp window)
+- Rollover cap 50% при renewal (PRD F-05): зараз балас просто додається
+- Lemon Squeezy API для programmatic checkout creation (зараз використовуємо hosted URL)
+- Email повідомлення на 20% і 5% (зараз тільки колір у хедері)
 
 ### 1. Карта скілів — детектор + UI
 - [x] Міграція `20260514000001_skill_events_clarifying.sql` — додає `clarifying_answers jsonb` у `skill_events`
@@ -67,6 +81,24 @@
 ## Нотатки сесій
 
 *Тут Claude Code залишає нотатки після кожної сесії — що зроблено, що відкрито, де зупинились.*
+
+### Сесія 7 (2026-05-14) — Sprint 2 Task 2: токени + Lemon Squeezy
+- **TokenBalance**: винесений з `header-nav` в окремий `components/token-balance.tsx`. Кольори на основі `balance / monthlyAllocation` (monthly = `plan_tokens_per_month` або 3000 для free). Червоний клікабельний з підказкою "Купити токени" → `/pricing`.
+- **`lib/tokens/api-guard.ts`**: `guardAITokens` стандартизує 402 з `redirect_to: "/pricing"`. Замінили inline `assertBalance` блоки в 4 AI route handlers.
+- **`lib/pricing/plans.ts`**: PLANS і TOKEN_PACKS з env-driven variantId+checkoutUrl. `lookupPurchase(variantId)` повертає `{tokens, plan?, planTokensPerMonth?, source, label}`.
+- **`/pricing`** (server component): показує всі плани + поточний план/баланс. Free → "Створити акаунт" або "Поточний план". Платні → лінк на LS checkout з `checkout[custom][user_id]` параметром. Token-pack секція внизу.
+- **Webhook** `/api/webhooks/lemonsqueezy`:
+  - HMAC SHA256 verify через `crypto.timingSafeEqual` (constant-time).
+  - Слухає тільки `order_created` (purchase) і `subscription_payment_success` (renewal); інші 200 без дії.
+  - Idempotency: select `token_transactions` за останню годину з тим самим `user_id + action_type + amount` — якщо знайдено, skip.
+  - Оновлює `tokens.balance += amount`. Для плану — також `plan, plan_tokens_per_month, next_renewal_at (+30 днів)`.
+  - Пише `token_transactions` row з action_type `purchase` або `renewal`.
+- **.env.local.example**: 5 змінних VARIANT_*, 5 CHECKOUT_*_URL, WEBHOOK_SECRET.
+
+**Що відкрито**:
+- Webhook покладається на меню `meta.custom_data.user_id` яке має бути проставлене в checkout URL — це сторінка /pricing робить.
+- Rollover cap (PRD F-05) не реалізований — це наступна ітерація.
+- Сторінка не показує "Cancel subscription" — це через LS customer portal, посилання можна додати окремо.
 
 ### Сесія 6 (2026-05-14) — Sprint 2 Task 1: карта скілів
 - **Міграція** `20260514000001_skill_events_clarifying.sql` — `alter table skill_events add column clarifying_answers jsonb default '[]'`. Треба прогнати на реальному проекті.
