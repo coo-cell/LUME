@@ -1,7 +1,7 @@
 # Поточний спринт — Спринт 1
 
 **Мета**: Повний робочий флоу від реєстрації до першого модуля.
-**Статус**: 🟡 В процесі
+**Статус**: 🟢 Готово (Sprint 1 завершений)
 
 ---
 
@@ -20,10 +20,10 @@
 - [x] API route /api/ai/analyze-onboarding → Claude API → запис профілю А+Б
 
 ### 3. Генерація першого модуля
-- [ ] Промпт generate-module.ts з профілем і ціллю
-- [ ] Streaming відповіді Claude API
-- [ ] Збереження модуля в Supabase
-- [ ] Сторінка /module/[id] — відображення трьох актів
+- [x] Промпт generate-module.ts з профілем і ціллю
+- [x] Streaming відповіді Claude API
+- [x] Збереження модуля в Supabase
+- [x] Сторінка /module/[id] — відображення трьох актів
 
 ### 4. Базова карта особистості
 - [x] Сторінка /profile — профіль А+Б після онбордингу
@@ -63,6 +63,33 @@
 - **Онбординг UI**: `components/onboarding/onboarding-content.ts` з хардкодним контентом 3 задач + 4 питань діалогу. Компоненти: `TaskReading` (фаза reading→questions з трекінгом часу і reread), `TaskDecision` (3 опції + "інше"), `TaskPriority` (up/down reorder, не drag — надійно на мобільному), `GoalDialog` (чат, парсить хвилини і формат), `Generating` (спіннер).
 - **Orchestrator** `app/(app)/onboarding/onboarding-flow.tsx`: client state, прогрес-бар, шлях `reading → decision → priority → dialog → analyzing → /profile`. Обробка помилок з retry.
 - **Profile** `/profile`: показує goal + блок А + блок Б рядком з лейблом/значенням. Редірект на `/onboarding` якщо не завершено.
+
+### Сесія 5 (2026-05-13) — Задача 3: генерація і відображення модуля
+- **Промпт** `lib/ai/prompts/generate-module.ts` — system prompt + tool `save_module` (схема з `docs/ai-prompts.md`: title, hook, core.sections[3-5] з опційними паузами, core.sources[2-4], action). Адаптація під профіль (motivation_vector, energy_source, autonomy_level, time_horizon, depth_vs_breadth, ambiguity_tolerance, processing_style, learning_pace) описана в system prompt.
+- **API** `POST /api/ai/generate-module`:
+  - Auth → fetch profile → перевірка `onboarding_completed` і обов'язкових полів профілю (409 якщо нема)
+  - Dedup window 5 хв: якщо є модуль зі статусом `generated|in_progress` створений нещодавно — повертає його `module_id` без нової генерації (захист від StrictMode double-mount і подвійних кліків)
+  - `assertBalance(1500)` → 402 при нестачі
+  - `anthropic.messages.stream()` + `tool_choice: save_module` → `await stream.finalMessage()` → парс `tool_use.input`
+  - `admin.insert(modules)` з `content`, `tokens_used`, `status='generated'` → `charge('module_generation', referenceId=moduleId)`
+  - Повертає `{module_id, balance}`. `maxDuration = 60`.
+- **API** `POST /api/module/start` — переводить модуль `generated → in_progress`, ставить `started_at`. Викликається з ModuleView fire-and-forget на першому маунті якщо `status='generated'`.
+- **API** `POST /api/module/complete` — пише `module_progress` row (pause_responses, task_completed, reflection_length, sources_opened) + ставить `modules.status='completed'`, `completed_at=now()`. Ownership check.
+- **`/module/generating`** активований: server wrapper `page.tsx` + client `generating-trigger.tsx`. Useeffect → POST generate-module → on success `router.push("/module/[id]")`. Ротація 4 повідомлень кожні 4 сек. Error UI з retry. StrictMode-safe (ref guard, без abort у cleanup).
+- **`/module/[id]`**: server fetch + ownership check + 404 при відсутності. Передає в `ModuleView`.
+- **Module components**:
+  - `module-view.tsx` (client) — orchestrator: auto-start, state для pause-відповідей, sources_opened, task_completed, reflection; кнопка "Завершити модуль" → complete API → `/dashboard`
+  - `act-hook.tsx` (server) — Hook з personal_reference як заголовок + text
+  - `act-core.tsx` (client) — секції з активними паузами між ними + sources list
+  - `active-pause.tsx` (client) — питання + textarea з типом (recall/application/reflection)
+  - `sources-list.tsx` (client) — закладки з кнопкою "позначити переглянуте"
+  - `act-action.tsx` (client) — task в highlighted блоці + чекбокс "виконав" + reflection textarea
+
+**Що не входило в Task 3 (наступні задачі)**:
+- Детальний behaviour tracking: time_on_hook_sec / time_on_core_sec / time_on_action_sec, sections_reread, scroll-based reread detection
+- Streaming partial content до клієнта (зараз тільки SDK streaming сервер→Claude)
+- Попередження про малий баланс токенів (20%/5%) у хедері
+- Re-engagement якщо людина пропала після онбордингу
 
 ### Сесія 4 (2026-05-13) — Онбординг V2 (MC + DnD + 5-step + generating)
 - **TaskReading V2**: 2 питання з multiple-choice + 1 відкрите. Додав `comprehension_q1_options`, `comprehension_q2_options` у `onboarding-content.ts`. `Q1_CORRECT/Q2_CORRECT` як hint для аналізатора (сигнал уваги, не оцінка).
